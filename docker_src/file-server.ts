@@ -575,8 +575,8 @@ class FileServer {
         "tar",
         "-czf",
         tempFile,
-        "--exclude=./logs",           // Exclude logs directory if it exists
-        "--exclude=./cache",          // Exclude cache directory if it exists
+        `--exclude=${dirName}/logs`,
+        `--exclude=${dirName}/cache`,
         "-C",
         directory.substring(0, directory.lastIndexOf("/")) || "/",
         dirName,
@@ -727,8 +727,8 @@ class FileServer {
         "tar",
         "-czf",
         tempFile,
-        "--exclude=./logs",           // Exclude logs directory if it exists
-        "--exclude=./cache",          // Exclude cache directory if it exists
+        `--exclude=${dirName}/logs`,
+        `--exclude=${dirName}/cache`,
         "-C",
         directory.substring(0, directory.lastIndexOf("/")) || "/",
         dirName,

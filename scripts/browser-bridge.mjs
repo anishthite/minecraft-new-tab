@@ -1,7 +1,7 @@
 import http from 'node:http';
 import net from 'node:net';
 import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { stat, open } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
 import { pipeline } from 'node:stream';
 import { WebSocketServer, createWebSocketStream } from 'ws';
@@ -13,11 +13,19 @@ export function createBridge({ root, host = '127.0.0.1', port = 25565, local = f
   const server = http.createServer(async (req, res) => {
     if (req.url === '/health') return res.writeHead(200).end('OK');
     if (req.url === '/__logs') {
-      try {
-        const info = await stat('/logs/minecraft.log');
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
-        pipeline(createReadStream('/logs/minecraft.log', { start: Math.max(0, info.size - 1024 * 1024) }), res, () => {});
-      } catch { res.writeHead(404).end(); }
+      res.writeHead(200, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' });
+      for (const name of ['file-server', 'http-proxy', 'minecraft']) {
+        let file;
+        try {
+          file = await open(`/logs/${name}.log`);
+          const info = await file.stat();
+          const tail = Buffer.alloc(Math.min(info.size, 256 * 1024));
+          await file.read(tail, 0, tail.length, info.size - tail.length);
+          res.write(`\n=== ${name} ===\n`);
+          res.write(tail);
+        } catch {} finally { await file?.close(); }
+      }
+      res.end();
       return;
     }
     if (!['GET', 'HEAD'].includes(req.method)) return res.writeHead(405).end();

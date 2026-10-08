@@ -49,5 +49,8 @@
   },
   "overrides": {
     "zod": "^3.25.76"
+  },
+  "patchedDependencies": {
+    "alchemy@0.75.0": "patches/alchemy@0.75.0.patch"
   }
 }

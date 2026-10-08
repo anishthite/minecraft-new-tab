@@ -1,0 +1,28 @@
+diff --git a/lib/cloudflare/container.js b/lib/cloudflare/container.js
+index b288e9e5c94c44cbcd95d03de6d084dcccd80d4f..1b8682fecee134890a152fb4e0e4605e25139193 100644
+--- a/lib/cloudflare/container.js
++++ b/lib/cloudflare/container.js
+@@ -175,9 +175,6 @@ export const ContainerApplication = Resource("cloudflare::ContainerApplication",
+             logs: {
+                 enabled: true,
+             },
+-            logging: {
+-                enabled: true,
+-            },
+         },
+     };
+     if (this.phase === "update" && this.output?.id) {
+diff --git a/src/cloudflare/container.ts b/src/cloudflare/container.ts
+index 6b1bdf984998356370fc6b0c8d967ddc0bda8ab1..111de426176b0cebeb46d44a714a46d655cfc8de 100644
+--- a/src/cloudflare/container.ts
++++ b/src/cloudflare/container.ts
+@@ -559,9 +559,6 @@ export const ContainerApplication = Resource(
+         logs: {
+           enabled: true,
+         },
+-        logging: {
+-          enabled: true,
+-        },
+       },
+     };
+     if (this.phase === "update" && this.output?.id) {
