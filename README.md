@@ -11,7 +11,11 @@ Browser client → authenticated Worker → WebSocket bridge → Paper
 
 This is an **unofficial browser client**, not Mojang's Java client. Expect compatibility and visual differences. We pin client release `v2.3.0` and Paper `1.21.4`; do not downgrade a newer world into this setup. The upstream client's MIT code license does not confer rights to every game asset or replace Minecraft ownership.
 
+**Status:** local browser play is verified. Cloud deployment is experimental: authentication, initial Paper startup, and R2 upload were tested, but a complete cloud stop/start restore has not yet passed. Use a fresh test world until that check succeeds.
+
 ## Try it locally first
+
+Clone **this fork**, not unmodified upstream Mineflare, and open a terminal in the repository root.
 
 Requirements: Docker with Compose, Bun, Node.js 22+, `curl`, `unzip`, and `shasum`. Docker must be running. Running Minecraft implies acceptance of [Minecraft's EULA](https://www.minecraft.net/eula).
 
@@ -120,6 +124,7 @@ bash -n container_src/start-with-services.sh
 | Game is slow | Keep packet recording off; try low-energy mode, 60 FPS cap, and a shorter render distance; graphics run on your device, not Cloudflare. |
 | Connection lost after tab is inactive | Reconnect; browsers can throttle background game tabs and interrupt protocol keepalives. |
 | Cloud game says to start the world | Return to the dashboard and click Start world; readiness takes longer than container startup. |
+| Dashboard says running but logs say the container is stopped | Cloud restart validation is still unresolved; inspect actual Container deployment state and runtime logs. Do not assume the dashboard state proves the world is restored. |
 | Setup returns 403 | Enter the deployment's setup key from `.env`, not the dashboard password. |
 | Backups/restores fail | Check Worker and container logs, R2 permissions, and the proxy connection; do not delete the running container or the R2 bucket. |
 | Empty world keeps running | Inspect maintenance/RCON errors; missing player counts or failed backups intentionally prevent unsafe shutdown. |
