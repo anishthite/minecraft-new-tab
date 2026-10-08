@@ -6,6 +6,9 @@
   "scripts": {
     "build": "bun ./docker_src/build.ts && bun run build:mcp-components && bun build:worker",
     "build:worker": "tsc -b",
+    "prepare:client": "bash scripts/prepare-client.sh",
+    "play:local": "LOCAL_ONLY=true node scripts/browser-bridge.mjs",
+    "test:bridge": "node --test tests/browser-bridge.test.mjs",
     "build:mcp-components": "bun run src/mcp-components/build-all.ts",
     "build:offline": "MINEFLARE_OFFLINE=true bun run build",
     "configure": "alchemy configure",
@@ -39,6 +42,7 @@
     "drizzle-orm": "^0.44.5",
     "elysia": "^1.4.9",
     "preact": "^10.19.0",
+    "ws": "8.18.3",
     "zod": "^3.25.76"
   },
   "overrides": {

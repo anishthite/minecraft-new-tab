@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "cloudflare-container",
@@ -16,6 +17,7 @@
         "drizzle-orm": "^0.44.5",
         "elysia": "^1.4.9",
         "preact": "^10.19.0",
+        "ws": "8.18.3",
         "zod": "^3.25.76",
       },
       "devDependencies": {
