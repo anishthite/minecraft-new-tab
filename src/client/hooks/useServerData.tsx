@@ -13,11 +13,9 @@ export function useServerData(isAuthenticated: boolean) {
   const [error, setError] = useState<string | null>(null);
   const [serverState, setServerState] = useState<ServerState>('stopped');
   const [startupStep, setStartupStep] = useState<string | null>(null);
-  const [serverVersion, setServerVersion] = useState<string>('1.21.8');
+  const [serverVersion, setServerVersion] = useState<string>('1.21.4');
   const [supportedVersions, setSupportedVersions] = useState<SupportedVersion[]>([
-    { version: '1.21.7', label: 'legacy' },
-    { version: '1.21.8', label: 'stable' },
-    { version: '1.21.10', label: 'experimental' },
+    { version: '1.21.4', label: 'stable' },
   ]);
   const [canChangeVersion, setCanChangeVersion] = useState(false);
   
@@ -157,8 +155,15 @@ export function useServerData(isAuthenticated: boolean) {
     setError(null);
     shouldFetchFullData.current = true;
     
-    // Trigger immediate poll to wake the server
-    await poll();
+    try {
+      const response = await fetchWithAuth('/api/start', { method: 'POST' });
+      if (!response.ok) throw new Error('Could not start world');
+      await poll();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Could not start world');
+      setServerState('stopped');
+      shouldFetchFullData.current = false;
+    }
   };
 
   const stopServer = async () => {

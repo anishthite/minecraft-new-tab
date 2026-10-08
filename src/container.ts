@@ -104,7 +104,7 @@ export class MinecraftContainer extends Container {
         
         // Minecraft server configuration
         TYPE: "PAPER",
-        VERSION: "1.21.8", // Default version, will be updated from state on start
+        VERSION: "1.21.4", // Browser client's first-class supported version
         EULA: "TRUE",
         SERVER_HOST: "0.0.0.0",
         ONLINE_MODE: "false",
@@ -144,7 +144,7 @@ export class MinecraftContainer extends Container {
             id    INTEGER PRIMARY KEY,
             json_data BLOB
           );
-          INSERT OR IGNORE INTO state (id, json_data) VALUES (1, jsonb('{"optionalPlugins": ["playit-minecraft-plugin"], "serverVersion": "1.21.8"}'));
+          INSERT OR IGNORE INTO state (id, json_data) VALUES (1, jsonb('{"optionalPlugins": [], "serverVersion": "1.21.4"}'));
           CREATE TABLE IF NOT EXISTS auth (
             id INTEGER PRIMARY KEY,
             salt TEXT,
@@ -220,7 +220,7 @@ export class MinecraftContainer extends Container {
           throw new Error("No result from sql query");
         }
         const parsed = StringArraySchema.parse(JSON.parse(result.optionalPlugins as string))
-          .filter(plugin => plugin !== 'Dynmap-3.7-beta-11-spigot');
+          .filter(plugin => !['Dynmap-3.7-beta-11-spigot', 'playit-minecraft-plugin'].includes(plugin));
         this._pluginFilenamesToEnable = parsed;
         return parsed;
       } catch (error) {
@@ -303,9 +303,9 @@ export class MinecraftContainer extends Container {
     // Server Version Management
     // =====================
 
-    private static readonly SUPPORTED_VERSIONS = ["1.21.8"] as const;
+    private static readonly SUPPORTED_VERSIONS = ["1.21.4"] as const;
     private static readonly VERSION_LABELS: Record<string, "stable"> = {
-      "1.21.8": "stable",
+      "1.21.4": "stable",
     };
 
     /**
@@ -314,16 +314,19 @@ export class MinecraftContainer extends Container {
     public async getServerVersion(): Promise<{ version: string }> {
       try {
         const result = this._sql.exec(
-          `SELECT COALESCE(json_data->>'$.serverVersion', '1.21.8') as version FROM state WHERE id = 1;`
+          `SELECT COALESCE(json_data->>'$.serverVersion', '1.21.4') as version FROM state WHERE id = 1;`
         ).one();
         if (!result) {
-          return { version: "1.21.8" };
+          return { version: "1.21.4" };
         }
         const version = result.version as string;
-        return { version: MinecraftContainer.SUPPORTED_VERSIONS.includes(version as "1.21.8") ? version : "1.21.8" };
+        if (version !== '1.21.4') {
+          throw new Error('Existing world version differs; use a fresh deployment instead of downgrading.');
+        }
+        return { version };
       } catch (error) {
         console.error("Failed to get server version:", error);
-        return { version: "1.21.8" };
+        throw error;
       }
     }
 
@@ -388,7 +391,10 @@ export class MinecraftContainer extends Container {
             console.error("Pre-shutdown backup failed:", backupResult.error);
           }
         } catch (error) {
-          console.error("Error during pre-shutdown backup (continuing with shutdown):", error);
+          console.error("Error during pre-shutdown backup:", error);
+        }
+        if (!backupSuccess) {
+          throw new Error('Backup failed; refusing to destroy the running world. Retry backup before stopping.');
         }
         
         this.recordSessionStop();
@@ -499,10 +505,47 @@ export class MinecraftContainer extends Container {
       console.error("Ports started");
     }
 
-    override onStart() {
+    override async onStart() {
       console.error("Container successfully started");
       this.recordSessionStart();
+      this.deleteSchedules('maintainWorld');
+      await this.ctx.storage.put('emptySince', Date.now());
+      await this.schedule(60, 'maintainWorld');
+    }
 
+    // Dashboard polling must not keep an empty world running indefinitely.
+    public async maintainWorld(): Promise<void> {
+      if (await this.getStatus() !== 'running') return;
+      try {
+        const status = await this.getRconStatus();
+        if (status.online && status.playerCount !== undefined) {
+          const now = Date.now();
+          const emptySince = await this.ctx.storage.get<number>('emptySince');
+          if (status.playerCount > 0) {
+            await this.ctx.storage.delete('emptySince');
+          } else if (emptySince === undefined) {
+            await this.ctx.storage.put('emptySince', now);
+          } else if (now - emptySince >= 5 * 60 * 1000) {
+            await this.stop();
+            return;
+          }
+          const lastBackup = await this.ctx.storage.get<number>('lastBackup') ?? 0;
+          if (now - lastBackup >= 15 * 60 * 1000) {
+            const result = await this.performBackup();
+            if (!result.success) throw new Error(result.error || 'Scheduled backup failed');
+            await this.ctx.storage.put('lastBackup', now);
+          }
+        }
+      } catch (error) {
+        console.error('World maintenance failed; retaining world for recovery:', error);
+      } finally {
+        if (await this.getStatus() === 'running') await this.schedule(60, 'maintainWorld');
+      }
+    }
+
+    override async onActivityExpired(): Promise<void> {
+      // Player-count maintenance, not HTTP inactivity, owns safe shutdown.
+      this.renewActivityTimeout();
     }
   
   // =====================
@@ -598,7 +641,7 @@ export class MinecraftContainer extends Container {
   }
 
   public async getLogs(): Promise<string> {
-    const response = await this.containerFetch("http://localhost:8082/", 8082);
+    const response = await this.containerFetch("http://localhost:8081/__logs", 8081);
     return await response.text();
   }
 
@@ -897,6 +940,8 @@ export class MinecraftContainer extends Container {
 
     override onStop() {
       console.error("Container successfully shut down");
+      this.deleteSchedules('maintainWorld');
+      this.recordSessionStop();
       this.ctx.waitUntil(this.disconnectRcon());
       this.ctx.waitUntil(this.disconnectHTTPProxy());
     }
@@ -914,6 +959,10 @@ export class MinecraftContainer extends Container {
 
         console.error("Optional plugins", this.pluginFilenamesToEnable);
         
+        if (url.pathname.startsWith('/play/')) {
+          return super.fetch(switchPort(request, 8081));
+        }
+
         if (url.pathname.startsWith('/src/browser/')) {
           // Route to noVNC websockify on port 6080
           console.error('browser websocket: noVNC on port 6080');
@@ -1082,13 +1131,11 @@ export class MinecraftContainer extends Container {
       if (!this.rcon) {
         if(!(await this.initRcon())) {
           return { online: false };
-        } else {
-          return { online: true };
         }
       }
 
       try {
-        const listResponse = await this.rcon.then(rcon => rcon.send("list"));
+        const listResponse = await this.rcon!.then(rcon => rcon.send("list"));
         console.error("Received response from RCON", listResponse);
         
         // Parse response like "There are 3 of a max of 20 players online"
@@ -1264,6 +1311,7 @@ export class MinecraftContainer extends Container {
 
     // Async because it's easier to consume as RPC if fn is async
     public async enablePlugin({ filename, env }: { filename: string; env?: Record<string, string> }) {
+      if (filename === 'playit-minecraft-plugin') throw new Error('Public TCP tunnels are disabled for this private browser-only server.');
       // If env provided, persist it first
       if (env) {
         this.setConfiguredPluginEnv(filename, env);
@@ -1365,20 +1413,9 @@ export class MinecraftContainer extends Container {
               throw new Error("RCON not available - server may be offline");
             }
             
-            // Step 2: Execute save-all flush to ensure all data is written
-            console.error("Executing save-all flush...");
-            await rcon.send("save-all flush");
-            // TODO: Poll the logs to check if the save-all flush is complete
-            // Wait a moment for save to complete
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            // Step 3: Disable auto-saving
-            console.error("Disabling auto-save...");
+            // Freeze disk writes before flushing the snapshot; finally restores saving.
             await rcon.send("save-off");
-        } catch (error) {
-          console.error("Error during save-all flush, proceeding with disk backup anyway", error);
-        }
-        try {
+            await rcon.send("save-all flush");
           // Step 4: Backup all the data
           const worldDirs = [
             '/data'

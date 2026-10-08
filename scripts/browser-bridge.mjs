@@ -12,6 +12,14 @@ export function createBridge({ root, host = '127.0.0.1', port = 25565, local = f
   const types = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.wasm': 'application/wasm', '.woff': 'font/woff', '.mp3': 'audio/mpeg' };
   const server = http.createServer(async (req, res) => {
     if (req.url === '/health') return res.writeHead(200).end('OK');
+    if (req.url === '/__logs') {
+      try {
+        const info = await stat('/logs/minecraft.log');
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        pipeline(createReadStream('/logs/minecraft.log', { start: Math.max(0, info.size - 1024 * 1024) }), res, () => {});
+      } catch { res.writeHead(404).end(); }
+      return;
+    }
     if (!['GET', 'HEAD'].includes(req.method)) return res.writeHead(405).end();
     try {
       const url = new URL(req.url, 'http://localhost');
@@ -47,7 +55,7 @@ export function createBridge({ root, host = '127.0.0.1', port = 25565, local = f
   return { server, wss };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.main || import.meta.url === `file://${process.argv[1]}`) {
   const { server } = createBridge({ root: process.env.CLIENT_ROOT || '.browser-client', host: process.env.MC_HOST || '127.0.0.1', port: Number(process.env.MC_PORT || 25565), local: process.env.LOCAL_ONLY === 'true' });
   server.listen(Number(process.env.PORT || 8081), process.env.LOCAL_ONLY === 'true' ? '127.0.0.1' : '0.0.0.0', () => console.log('Browser bridge ready'));
 }

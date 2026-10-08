@@ -14,26 +14,20 @@ const cloudflareStateStore = (scope: Scope) => new CloudflareStateStore(scope, {
 
 const localStateStore = (scope: Scope) => new SQLiteStateStore(scope);
 
-const name = process.env.WRANGLER_CI_OVERRIDE_NAME ?? "mineflare";
+const name = process.env.WRANGLER_CI_OVERRIDE_NAME ?? "minecraft-new-tab";
 const app = await alchemy(name, {
   stateStore: process.env.NODE_ENV === "development" ? localStateStore : cloudflareStateStore,
   password: process.env.ALCHEMY_PASSWORD ?? "minecraft-on-cloudflare-is-awesome-this-is-used-to-encrypt-secrets-stored-locally-but-we-dont-have-any-so-its-fine-to-use-this-password",
   stage: name,
 });
 
-const baseDockerfile = await Bun.file("docker_src/.BASE_DOCKERFILE").text();
-
-console.log(`Base Dockerfile: ${baseDockerfile}`);
 export const containerPromise = Container<MinecraftContainer>("container3", {
   name: `${app.name}-container`,
   className: "MinecraftContainer",
   adopt: true,
   build: {
-    context: 'container_src',
-    dockerfile: "Dockerfile",
-    args: {
-        BASE_DOCKERFILE: baseDockerfile
-    }
+    context: '.',
+    dockerfile: "container_src/Dockerfile"
   },
   instanceType: "standard-1",
   maxInstances: 1,
@@ -134,8 +128,13 @@ const tsAuthkey = await Secret("ts-authkey", {
   value: alchemy.secret(process.env.TS_AUTHKEY || "null"),
 });
 
+const setupToken = await Secret('setup-token', {
+  value: alchemy.secret(process.env.MINEFLARE_SETUP_TOKEN || (() => { throw new Error('Set MINEFLARE_SETUP_TOKEN in .env before deploying.'); })()),
+});
+
 const bindings =  {
   MINECRAFT_CONTAINER: container,
+  MINEFLARE_SETUP_TOKEN: setupToken,
 
   // Secrets for Tailscale
   TS_AUTHKEY: tsAuthkey,

@@ -21,7 +21,7 @@ export function getMinecraftContainer() {
         return env.MINECRAFT_CONTAINER.get(containerId);
     }
     const locationHint = getLocationHint(cf);
-    const containerId = env.MINECRAFT_CONTAINER.idFromName(singletonContainerId + "-" + locationHint);
+    const containerId = env.MINECRAFT_CONTAINER.idFromName(singletonContainerId);
     console.log("setting location hint to", locationHint, "based on request");
     return env.MINECRAFT_CONTAINER.get(containerId, { locationHint });
 }

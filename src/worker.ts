@@ -54,10 +54,7 @@ const elysiaApp = (
       if(state === "stopping") {
         return { online: false };
       }
-      if(state !== "running") {
-        console.log("Starting container");
-        await container.start();
-      }
+      if(state !== "running") return { online: false };
       const response = await container.getRconStatus();
       
       const status = await response;
@@ -68,8 +65,16 @@ const elysiaApp = (
     }
   })
 
+  .post('/start', async () => {
+    const container = getMinecraftContainer();
+    const state = await container.getStatus();
+    if (state === 'stopping') return Response.json({ error: 'World is stopping' }, { status: 409 });
+    if (state === 'stopped') await container.start();
+    return { success: true };
+  })
+
   /**
-   * Get the players of the Minecraft server. This may wake the server if not already awake.
+   * Get the players of the Minecraft server. This does not wake the server.
    */
   .get("/players", async ({ request}) => {
     try {
@@ -467,6 +472,20 @@ export default {
     const url = new URL(request.url);
 
     return asyncLocalStorage.run({ cf: request.cf }, async () => {
+      // Browser game assets and sockets share the dashboard's authenticated origin.
+      if (url.pathname.startsWith('/play/')) {
+        const authError = await requireAuth(request);
+        if (authError) return authError;
+        if (request.headers.get('Upgrade')?.toLowerCase() === 'websocket' &&
+            request.headers.get('Origin') !== url.origin) {
+          return new Response('Forbidden origin', { status: 403 });
+        }
+        const container = getMinecraftContainer();
+        if (await container.getStatus() !== 'running') {
+          return new Response('Start your world from the dashboard first.', { status: 409 });
+        }
+        return container.fetch(request);
+      }
       // auth methods do not require auth - but browser/terminal HTML pages DO require auth
       // Only skip auth for WebSocket upgrades (ws protocol or /ws path with Upgrade header)
       const isWebSocketUpgrade = url.protocol.startsWith('ws') || 

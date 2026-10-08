@@ -41,9 +41,14 @@ export function useAuth() {
   const setup = useCallback(async (password: string): Promise<{ success: boolean; error?: string }> => {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
+      const setupToken = window.prompt('Enter MINEFLARE_SETUP_TOKEN from your deployment .env file:');
+      if (!setupToken) {
+        setState(prev => ({ ...prev, loading: false }));
+        return { success: false, error: 'Setup key required' };
+      }
       const response = await fetchApi('/auth/setup', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Setup-Token': setupToken },
         body: JSON.stringify({ password }),
       });
       

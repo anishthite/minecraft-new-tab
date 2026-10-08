@@ -1,0 +1,11 @@
+.git
+.env*
+node_modules
+implementation-notes
+.playwright-cli
+output
+.alchemy
+.compiled
+dist
+docker_src/*.jar
+container_src/optional_plugins

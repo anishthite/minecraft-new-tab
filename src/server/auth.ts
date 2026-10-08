@@ -267,6 +267,10 @@ export const authApp = (
    */
   .post("/setup", async ({ request, body }: any) => {
     try {
+      const setupToken = await env.MINEFLARE_SETUP_TOKEN.get();
+      if (!setupToken || request.headers.get('X-Setup-Token') !== setupToken) {
+        return Response.json({ error: 'Deployment setup key required' }, { status: 403 });
+      }
       const { password } = body as { password: string };
       if (!password || password.length < 8) {
         return new Response(JSON.stringify({ error: "Password must be at least 8 characters" }), {
@@ -292,7 +296,7 @@ export const authApp = (
       }
       console.log("Calling setupPassword on container...");
       const result = await container.setupPassword({ password });
-      console.log("setupPassword result:", result);
+      console.log("Password setup completed:", result.created);
       
       if (!result.created) {
         console.log("Password already set, returning 409");
