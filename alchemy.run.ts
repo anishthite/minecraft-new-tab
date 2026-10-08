@@ -1,236 +1,51 @@
-import alchemy, { type Scope } from "alchemy";
-import { CloudflareStateStore, SQLiteStateStore } from "alchemy/state";
-import { DurableObjectNamespace, Container, R2Bucket, BunSPA, Worker, Secret, Tunnel } from "alchemy/cloudflare";
-import { MinecraftContainer } from "./src/container.ts";
+import alchemy, { type Scope } from 'alchemy';
+import { CloudflareStateStore, SQLiteStateStore } from 'alchemy/state';
+import { Container, R2Bucket, BunSPA, Secret, type Worker } from 'alchemy/cloudflare';
+import type { MinecraftContainer } from './src/container';
 
-// We maximize concurrency in this file to ensure that build and depoy are as fast as possible.
-// by using promises everywhere and avoiding any top level awaits.
-
-const cloudflareStateStore = (scope: Scope) => new CloudflareStateStore(scope, {
-  forceUpdate: process.env.ALCHEMY_CF_STATE_FORCE_UPDATE?.toLowerCase() === "true",
-  stateToken: alchemy.secret(process.env.ALCHEMY_STATE_TOKEN ?? "minecraft-on-cloudflare-is-awesome-this-is-used-to-encrypt-state-stored-in-cloudflare-but-we-dont-have-any-sensitive-secrets-so-its-fine-to-use-this-token"),
-  scriptName: "mineflare-alchemy-state-store",
+const name = process.env.WRANGLER_CI_OVERRIDE_NAME ?? 'minecraft-new-tab';
+const stateStore = (scope: Scope) => new CloudflareStateStore(scope, {
+  stateToken: alchemy.secret(process.env.ALCHEMY_STATE_TOKEN || ''),
+  scriptName: 'mineflare-alchemy-state-store',
 });
-
-const localStateStore = (scope: Scope) => new SQLiteStateStore(scope);
-
-const name = process.env.WRANGLER_CI_OVERRIDE_NAME ?? "minecraft-new-tab";
+if (!process.env.ALCHEMY_PASSWORD || !process.env.ALCHEMY_STATE_TOKEN || !process.env.MINEFLARE_SETUP_TOKEN) {
+  throw new Error('Set ALCHEMY_PASSWORD, ALCHEMY_STATE_TOKEN, and MINEFLARE_SETUP_TOKEN in .env.');
+}
 const app = await alchemy(name, {
-  stateStore: process.env.NODE_ENV === "development" ? localStateStore : cloudflareStateStore,
-  password: process.env.ALCHEMY_PASSWORD ?? "minecraft-on-cloudflare-is-awesome-this-is-used-to-encrypt-secrets-stored-locally-but-we-dont-have-any-so-its-fine-to-use-this-password",
+  stateStore: process.env.NODE_ENV === 'development' ? (scope: Scope) => new SQLiteStateStore(scope) : stateStore,
+  password: process.env.ALCHEMY_PASSWORD,
   stage: name,
 });
 
-export const containerPromise = Container<MinecraftContainer>("container3", {
-  name: `${app.name}-container`,
-  className: "MinecraftContainer",
-  adopt: true,
-  build: {
-    context: '.',
-    dockerfile: "container_src/Dockerfile"
-  },
-  instanceType: "standard-1",
-  maxInstances: 1,
+const container = await Container<MinecraftContainer>('container3', {
+  name: `${app.name}-container`, className: 'MinecraftContainer', adopt: true,
+  build: { context: '.', dockerfile: 'container_src/Dockerfile' },
+  instanceType: 'standard-1', maxInstances: 1,
 });
-
-await containerPromise;
-
-// R2 bucket for Dynmap tiles and web UI
-const dynmapBucketPromise: Promise<R2Bucket> = R2Bucket("dynmap-tiles", {
-  name: `${app.name}-dynmap-public`,
-  dev: {
-    remote: true,
-  },
-  empty: true, // This means empty-the-bucket-on-deletion
-  adopt: true,
-  // Enable public access - tiles and UI served directly from R2.dev domain
-  allowPublicAccess: true,
-  // CORS config allows browser JS to fetch tiles and call Worker API
-  cors: [
-    {
-      allowed: {
-        origins: ["*"], // Permissive CORS for ease of use
-        methods: ["GET", "HEAD"],
-        headers: ["*"],
-      },
-    },
-  ],
-  lifecycle: [
-    {
-      id: "delete-after-7-days",
-      enabled: true,
-      conditions: {
-          prefix: "tiles/world/",
-      },
-      deleteObjectsTransition: {
-        condition: {
-          maxAge: 7 * 60 * 60 * 24, // 7 days
-          type: "Age",
-        }
-      }
-    },
-    {
-      id: "delete-mp-uploads",
-      enabled: true,
-      abortMultipartUploadsTransition: {
-        condition: {
-          maxAge: 60 * 60 * 24, // 24 hours because any less looks like "0 days" in the cloudflare UI
-          type: "Age",
-        }
-      }
-    }
-  ]
+const dataBucket = await R2Bucket('data-private-bucket', {
+  name: `${app.name}-private-data`, delete: false,
+  dev: { remote: true }, adopt: true, allowPublicAccess: false,
 });
-
-// R2 bucket for Server game data
-const dataBucketPromise = R2Bucket("data-private-bucket", {
-  name: `${app.name}-private-data`,
-  delete: false, // THis means just orphan the bucket on deletion, don't actually delete it.
-  dev: {
-    remote: true,
-  },
-  adopt: true,
-  allowPublicAccess: false,
-});
-// Create API token for R2 access (S3-compatible credentials)
-// This generates accessKeyId and secretAccessKey for Dynmap's S3 SDK
-// const r2Token = await AccountApiToken("dynmap-r2-token", {
-//   name: `${app.name}-dynmap-r2`,
-//   policies: [
-//     {
-//       effect: "allow",
-//       permissionGroups: ["Workers R2 Storage Write"],
-//       resources: {
-//         "com.cloudflare.api.account": "*",
-//       },
-//     },
-//   ],
-// });
-
-
-
-export const dynmapWorker = await dynmapBucketPromise.then(async dynmapBucket => await Worker("dynmap-worker", {
-  name: `${app.name}-dynmap-public`,
-  entrypoint: "src/dynmap-worker.ts",
-  adopt: true,
-  bindings: {
-    DYNMAP_BUCKET: dynmapBucket,
-    BUCKET_DOMAIN: dynmapBucket.domain ?? "",
-    MINECRAFT_WORKER_URL: "https://*", // should be worker url but we don't know it yet
-  },
-}));
-
-
-const [container, dynmapBucket, dataBucket] = await Promise.all([containerPromise, dynmapBucketPromise, dataBucketPromise]);
-
-
-const tsAuthkey = await Secret("ts-authkey", {
-  value: alchemy.secret(process.env.TS_AUTHKEY || "null"),
-});
-
-const setupToken = await Secret('setup-token', {
-  value: alchemy.secret(process.env.MINEFLARE_SETUP_TOKEN || (() => { throw new Error('Set MINEFLARE_SETUP_TOKEN in .env before deploying.'); })()),
-});
-
-const bindings =  {
+const tsAuthkey = await Secret('ts-authkey', { value: alchemy.secret('null') });
+const setupToken = await Secret('setup-token', { value: alchemy.secret(process.env.MINEFLARE_SETUP_TOKEN) });
+const bindings = {
   MINECRAFT_CONTAINER: container,
   MINEFLARE_SETUP_TOKEN: setupToken,
-
-  // Secrets for Tailscale
   TS_AUTHKEY: tsAuthkey,
   NODE_ENV: process.env.NODE_ENV ?? 'development',
-  // Reset auth to first-use setup mode (string boolean: "true" | "false")
   MINEFLARE_RESET_PASSWORD_MODE: process.env.MINEFLARE_RESET_PASSWORD_MODE ?? 'false',
-
-  // R2 API credentials (S3-compatible) generated by AccountApiToken
-  // These are automatically encrypted by alchemy.secret()
-  // R2_ACCESS_KEY_ID: r2Token.accessKeyId,
-  // R2_SECRET_ACCESS_KEY: r2Token.secretAccessKey,
-
-  // Bucket name (passed to container for Dynmap config)
-  DYNMAP_BUCKET_NAME: dynmapBucket.name,
-  DYNMAP_BUCKET: dynmapBucket,
-
-  // Data bucket for server game data
-  DATA_BUCKET_NAME: dataBucket.name,
-  DATA_BUCKET: dataBucket,
-  
-  // Dynmap worker URL for iframe embedding
-  DYNMAP_WORKER_URL: dynmapWorker.url ?? "",
+  DATA_BUCKET_NAME: dataBucket.name, DATA_BUCKET: dataBucket,
+  // Keep upstream proxy binding names without provisioning a public map bucket.
+  DYNMAP_BUCKET_NAME: dataBucket.name, DYNMAP_BUCKET: dataBucket, DYNMAP_WORKER_URL: '',
 } as const;
-export const worker: BunSPA<typeof bindings> = await BunSPA("mineflare-main-worker", {
-  name: app.name,
-  entrypoint: "src/worker.ts",
-  frontend: ["index.html", "src/terminal/index.html", "src/browser/index.html"],
-  adopt: true,
-  compatibility: "node",
-  compatibilityFlags: ["enable_ctx_exports"],
-  compatibilityDate: "2025-09-27",
-  bindings,
+export const worker: BunSPA<typeof bindings> = await BunSPA('mineflare-main-worker', {
+  name: app.name, entrypoint: 'src/worker.ts', frontend: ['index.html'], adopt: true,
+  compatibility: 'node', compatibilityFlags: ['enable_ctx_exports'],
+  compatibilityDate: '2025-09-27', bindings,
 });
 
-await worker;
-
-
-const agentDOPromise = DurableObjectNamespace("mineflare-agent", {
-    className: "MineflareAgent",
-    sqlite: true,
-});
-
-await agentDOPromise;
-
-const agentWorkerPromise: Promise<import("alchemy/cloudflare").Worker> = Promise.all([agentDOPromise, worker]).then(async ([agentDO, worker]) => await Worker("mineflare-agent", {
-  name: `${app.name}-agent`,
-  entrypoint: "src/agent.ts",
-  adopt: true,
-  compatibility: "node",
-  bindings: {
-    MCP_OBJECT: agentDO,
-    MINEFLARE_WORKER: worker // bind to the main worker
-  },
-}));
-
-await agentWorkerPromise;
-
-const [ agentDO, agentWorker] = await Promise.all([agentDOPromise, agentWorkerPromise]);
-
-console.log("Dynmap Worker URL:", dynmapWorker.url);
-console.log("Agent Worker URL:", agentWorker.url);
-
-let devTunnelProcess: Promise<unknown> | undefined;
-if(process.env.NODE_ENV === "development" && process.env.DEV_TUNNEL_AGENT_HOSTNAME && process.env.DEV_TUNNEL_DYNMAP_HOSTNAME) {
-  console.log("Creating dev tunnel for agent and dynmap");
-  const devTunnel = await Tunnel("mineflare-agent-dev-tunnel", {
-    name: `${app.name}-agent-dev`,
-    adopt: true,
-    ingress: [
-      {
-        service: agentWorker.url!.replace(/\/$/, ""),
-        hostname: process.env.DEV_TUNNEL_AGENT_HOSTNAME,
-      },
-      {
-        service: dynmapWorker.url!.replace(/\/$/, ""),
-        hostname: process.env.DEV_TUNNEL_DYNMAP_HOSTNAME,
-      },
-      {
-        service: "http_status:404",
-      }
-    ]
-  });
-
-  devTunnelProcess = Bun.$`cloudflared tunnel run --token ${devTunnel.token.unencrypted}`;
-  console.log("Tunnel URL:", devTunnel.dnsRecords);
-}
-
-export { container, dynmapBucket, dataBucket, agentDO, agentWorker };
-// console.log("Tunnel:", JSON.stringify(devTunnel, null, 2));
-console.log("Dynmap Worker URL:", dynmapWorker.url);
-console.log("Agent Worker URL:", agentWorker.url);
-console.log("Worker URL:", worker.url);
-console.log("Worker backend URL:", worker.apiUrl);
-
+// Type-only compatibility for unused upstream sources; no ancillary workers deploy.
+export declare const dynmapWorker: Worker<{ DYNMAP_BUCKET: R2Bucket; BUCKET_DOMAIN: string; MINECRAFT_WORKER_URL: string }>;
+export declare const agentWorker: Worker;
+console.log('Worker URL:', worker.url);
 await app.finalize();
-
-if(devTunnelProcess) {
-  await devTunnelProcess;
-}

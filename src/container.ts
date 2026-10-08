@@ -370,7 +370,7 @@ export class MinecraftContainer extends Container {
     private stopping = false;
     
     override async stop() {
-      console.error("stopppppp");
+      console.error("Stopping world");
       
       // Check if container is actually running before attempting backup
       const currentStatus = await this.getStatus();
@@ -401,12 +401,7 @@ export class MinecraftContainer extends Container {
         // don't set stopping until after the backup is taken or it prevents rcon.
         this.stopping = true;
         
-        // if backup failed, give the container a shot at it
-        if(!backupSuccess) {
-          await super.stop("SIGTERM");
-          return;
-        }
-        // just kill the container
+        // The verified R2 snapshot is durable; do not run another shell backup.
         await super.stop("SIGKILL");
       } else if (currentStatus === 'stopped' || currentStatus === 'stopping') {
         // Container is already stopped or stopping, just record the session stop

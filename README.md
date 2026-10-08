@@ -87,7 +87,7 @@ The default deployment name is `minecraft-new-tab`. Set `WRANGLER_CI_OVERRIDE_NA
 - Container disk is ephemeral; R2 is the durable cloud copy. Abrupt infrastructure failure can lose progress since the last successful backup.
 - The private data bucket is retained on infrastructure teardown. Backups accumulate; monitor R2 usage and set an appropriate retention policy after verifying restores.
 
-This fork retains some upstream infrastructure definitions and source files, but the game image excludes the development desktop, coding agents, Dynmap, and public playit tunnel. The upstream MCP/Dynmap services are not required to play.
+The deployment provisions the main Worker, one game Container, a private data bucket, authentication secrets, and Alchemy's state store. The image excludes the development desktop, coding agents, Dynmap, and public playit tunnel; no MCP or Dynmap Worker is deployed. Some unused upstream source files remain for reference.
 
 ### Security
 

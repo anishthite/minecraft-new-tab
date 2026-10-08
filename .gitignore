@@ -1,5 +1,6 @@
 # Project specific
 .browser-client/
+.dashboard-password
 .playwright-cli/
 output/playwright/
 .alchemy/

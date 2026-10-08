@@ -59,6 +59,18 @@ test('failed backup blocks destructive shutdown', async () => {
   expect(container.signal).toBe('SIGKILL');
 });
 
+test('concurrent backup callers share one snapshot', async () => {
+  const { container } = world();
+  let finish: (value: unknown) => void = () => {};
+  let runs = 0;
+  container.backupWorld = () => { runs++; return new Promise(resolve => { finish = resolve; }); };
+  const first = container.performBackup();
+  const second = container.performBackup();
+  expect(runs).toBe(1);
+  finish({ success: true, backups: [] });
+  expect(await first).toEqual(await second);
+});
+
 test('backup freezes writes, flushes, snapshots, and restores saving on failure', async () => {
   const { container } = world();
   const commands: string[] = [];
