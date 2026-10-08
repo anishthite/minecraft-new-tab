@@ -22,6 +22,18 @@ function world() {
   return { container, data };
 }
 
+test('native runtime state wins over a stale running status', async () => {
+  const { container } = world();
+  delete container.getStatus;
+  container.getState = async () => ({ status: 'running' });
+  container._container = { running: false };
+  expect(await container.getStatus()).toBe('stopped');
+  container._container.running = true;
+  expect(await container.getStatus()).toBe('running');
+  container.stopping = true;
+  expect(await container.getStatus()).toBe('stopping');
+});
+
 test('first RCON status request reports actual player count', async () => {
   const { container } = world();
   container.initRcon = async () => {

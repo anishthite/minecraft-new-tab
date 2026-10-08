@@ -1,5 +1,6 @@
 .git
 .env*
+.dashboard-password
 node_modules
 implementation-notes
 .playwright-cli

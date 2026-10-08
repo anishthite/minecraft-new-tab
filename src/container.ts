@@ -188,16 +188,12 @@ export class MinecraftContainer extends Container {
           }
         }));
         this.ctx.waitUntil(this.getStatus().then(async status => {
-          if(status !== 'stopped' && status !== 'stopping') {
-            console.error("Container is not stopped or stopping, initializing HTTP Proxy in constructor");
+          if(status === 'running') {
+            console.error("Reconnecting HTTP Proxy to running container");
             try {
-              // In dev sometimes state lies
-              await this.start();
-              await new Promise(resolve => setTimeout(resolve, 2000));
               await this.initHTTPProxy();
             } catch (error) {
-              this.stop()
-              console.error("Failed to start container in constructor:", error);
+              console.error("Failed to reconnect HTTP Proxy:", error);
             }
           }
         }));
@@ -478,8 +474,8 @@ export class MinecraftContainer extends Container {
         console.error("Starting and waiting for ports");
         const portsPromise = super.startAndWaitForPorts(8083, {
             waitInterval: 250,
-            instanceGetTimeoutMS: 2000,
-            portReadyTimeoutMS: 30_000
+            instanceGetTimeoutMS: 120_000,
+            portReadyTimeoutMS: 120_000
         });
         this.ctx.waitUntil((new Promise(resolve => setTimeout(resolve, 3000))).then(() => this.initHTTPProxy()));
         await portsPromise;
@@ -735,6 +731,7 @@ export class MinecraftContainer extends Container {
       this.stopping = false;
       return status;
     } else if (status === 'running') {
+      if (!running) return 'stopped';
       if(this.stopping) {
         return 'stopping';
       }
