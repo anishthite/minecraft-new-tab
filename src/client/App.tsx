@@ -48,6 +48,18 @@ export function App() {
       padding: '0',
       margin: '0',
     }}>
+      {serverState === 'running' && status?.online && (
+        <p style={{ textAlign: 'center', paddingTop: '24px' }}>
+          <a style={{ color: '#a5e59b', fontSize: '24px' }} href={'/play/?' + new URLSearchParams([
+            ['ip', `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/play/ws`],
+            ['version', '1.21.4'], ['username', 'Player'],
+            ['setting', 'frameLimit:60'],
+            ['setting', 'rendererWorldPerformance:"low-energy"'],
+            ['setting', 'packetsRecordingAutoStart:false'],
+            ['setting', 'displayRecordButton:false'],
+          ]).toString()}>Play Minecraft in this tab</a>
+        </p>
+      )}
       {/* Hero Section */}
       <div style={{
         maxWidth: '1600px',
