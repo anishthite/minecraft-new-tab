@@ -18,8 +18,6 @@ interface CloudflareTCPSocket {
 }
 
 const StringArraySchema = array(string());
-const DYNMAP_PLUGIN_FILENAME = 'Dynmap-3.7-beta-11-spigot';
-
 // Plugin status types
 type PluginStatus = 
   | { type: "no message" }
@@ -29,19 +27,6 @@ type PluginStatus =
 
 // Plugin specifications with required environment variables
 const PLUGIN_SPECS = [
-  {
-    filename: 'Dynmap-3.7-beta-11-spigot',
-    displayName: 'DynMap',
-    requiredEnv: [] as Array<{ name: string; description: string }>,
-    getStatus: async (container: MinecraftContainer): Promise<PluginStatus> => {
-      const status = await container.getStatus();
-      // we can't talk to the container if it's not running
-      if(status !== 'running') {
-        return { type: "no message" };
-      }
-      return { type: "information", message: "Map rendering is active" };
-    },
-  },
   {
     filename: 'playit-minecraft-plugin',
     displayName: 'playit.gg',
@@ -127,8 +112,11 @@ export class MinecraftContainer extends Container {
         // Hardcoded password is safe since we're running on a private tailnet
         RCON_PASSWORD: "minecraft",
         RCON_PORT: "25575",
-        INIT_MEMORY: "5G", // big containers
-        MAX_MEMORY: "11G", // big containers
+        INIT_MEMORY: "1G",
+        MAX_MEMORY: "3G",
+        VIEW_DISTANCE: "6",
+        SIMULATION_DISTANCE: "4",
+        MAX_PLAYERS: "1",
         // R2 credentials for Dynmap S3 storage and backups
         // AWS_ACCESS_KEY_ID: this.env.R2_ACCESS_KEY_ID,
         // AWS_SECRET_ACCESS_KEY: this.env.R2_SECRET_ACCESS_KEY,
@@ -231,11 +219,8 @@ export class MinecraftContainer extends Container {
         if(!result) {
           throw new Error("No result from sql query");
         }
-        const parsed = StringArraySchema.parse(JSON.parse(result.optionalPlugins as string));
-        // Always enable Dynmap
-        if(!parsed.includes(DYNMAP_PLUGIN_FILENAME)) {
-          parsed.unshift(DYNMAP_PLUGIN_FILENAME);
-        }
+        const parsed = StringArraySchema.parse(JSON.parse(result.optionalPlugins as string))
+          .filter(plugin => plugin !== 'Dynmap-3.7-beta-11-spigot');
         this._pluginFilenamesToEnable = parsed;
         return parsed;
       } catch (error) {
@@ -318,11 +303,9 @@ export class MinecraftContainer extends Container {
     // Server Version Management
     // =====================
 
-    private static readonly SUPPORTED_VERSIONS = ["1.21.7", "1.21.8", "1.21.10"] as const;
-    private static readonly VERSION_LABELS: Record<string, "legacy" | "stable" | "experimental"> = {
-      "1.21.7": "legacy",
+    private static readonly SUPPORTED_VERSIONS = ["1.21.8"] as const;
+    private static readonly VERSION_LABELS: Record<string, "stable"> = {
       "1.21.8": "stable",
-      "1.21.10": "experimental",
     };
 
     /**
@@ -337,7 +320,7 @@ export class MinecraftContainer extends Container {
           return { version: "1.21.8" };
         }
         const version = result.version as string;
-        return { version };
+        return { version: MinecraftContainer.SUPPORTED_VERSIONS.includes(version as "1.21.8") ? version : "1.21.8" };
       } catch (error) {
         console.error("Failed to get server version:", error);
         return { version: "1.21.8" };
@@ -519,7 +502,7 @@ export class MinecraftContainer extends Container {
     override onStart() {
       console.error("Container successfully started");
       this.recordSessionStart();
-      this.ctx.waitUntil(this.initRcon().then(rcon => rcon?.send("dynmap fullrender world")));
+
     }
   
   // =====================
@@ -1303,9 +1286,6 @@ export class MinecraftContainer extends Container {
 
     // Async because it's easier to consume as RPC if fn is async
     public async disablePlugin({ filename }: { filename: string }) {
-      if(filename === DYNMAP_PLUGIN_FILENAME) {
-        throw new Error("Dynmap cannot be disabled");
-      }
       this.pluginFilenamesToEnable = this.pluginFilenamesToEnable.filter(p => p !== filename);
     }
 
@@ -1388,9 +1368,6 @@ export class MinecraftContainer extends Container {
             // Step 2: Execute save-all flush to ensure all data is written
             console.error("Executing save-all flush...");
             await rcon.send("save-all flush");
-            console.error("Pausing dynmap rendering");
-            await rcon.send("dynmap pause all")
-            
             // TODO: Poll the logs to check if the save-all flush is complete
             // Wait a moment for save to complete
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -1479,8 +1456,6 @@ export class MinecraftContainer extends Container {
             }
             await rcon.send("save-on");
             console.error("Auto-save re-enabled");
-            await rcon.send("dynmap pause none") // wierd syntax but this means resume
-            console.error("Dynmap resumed")
           } catch (error) {
             console.error("Failed to re-enable auto-save:", error);
             // Don't throw here - we want to return the backup results

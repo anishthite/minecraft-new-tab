@@ -1,48 +1,34 @@
-# syntax=docker/dockerfile:1
-ARG BASE_DOCKERFILE=andrewjefferson/mineflare-base:latest
-FROM ${BASE_DOCKERFILE}
+# syntax=docker/dockerfile:1.6
 
-# Set XDG_DATA_HOME for all AI CLIs to use /data/.local
-ENV XDG_DATA_HOME=/data/.local
-ENV XDG_CONFIG_HOME=/data/.config
-ENV XDG_CACHE_HOME=/data/.cache
+FROM itzg/minecraft-server:latest AS paper-install
+RUN mkdir -p /opt/minecraft/server \
+ && /usr/bin/mc-image-helper install-paper \
+      --project=paper --version=1.21.8 \
+      --output-directory=/opt/minecraft/server \
+      --results-file=/opt/minecraft/server/.paper.env
 
-USER 1000:1000
+FROM itzg/minecraft-server:latest
 
-# Create symlink from /home/minecraft to /data and set HOME - note this is NOT creating a circular reference
-# it just ensures we persist all HOME data in the expected mount point
-RUN sudo ln -sf /data /home/minecraft
-ENV HOME=/home/minecraft
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends curl ca-certificates sudo \
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /data/plugins /logs /status \
+ && chown -R 1000:1000 /data /logs /status
 
-# For backwards compatibility with the old wrapper script we need to make claude symlinks to the old binary locations
-RUN sudo ln -s /usr/local/bin/claude /usr/local/bin/claude-x64 && \
-    sudo ln -s /usr/local/bin/claude /usr/local/bin/claude-arm64 && \
-    mkdir -p /data/.local/bin && \
-    echo '#!/bin/bash' > /data/.local/bin/claude && \
-    echo 'exec /usr/local/bin/claude --dangerously-skip-permissions "$@"' >> /data/.local/bin/claude && \
-    chmod +x /data/.local/bin/claude
+COPY --from=paper-install /opt/minecraft/server /opt/minecraft/server
+COPY --chmod=755 start-with-services.sh /usr/local/bin/start-with-services.sh
+COPY --chmod=755 http-proxy-x64 http-proxy-arm64 file-server-x64 file-server-arm64 hteetp-linux-x64 hteetp-linux-arm64 /tmp/
+COPY --chmod=755 optional_plugins/playit-minecraft-plugin.jar /data/optional_plugins/playit-minecraft-plugin.jar
 
-COPY CLAUDE.md /data/CLAUDE.md
-COPY CLAUDE.md /data/GEMINI.md
-COPY CLAUDE.md /data/AGENTS.md
-COPY CLAUDE.md /data/CODEX.md
-COPY optional_plugins/ /data/optional_plugins/
+ARG TARGETARCH
+RUN set -eux; \
+    case "$TARGETARCH" in amd64) arch=x64 ;; arm64) arch=arm64 ;; *) exit 1 ;; esac; \
+    mv "/tmp/http-proxy-$arch" /usr/local/bin/http-proxy; \
+    mv "/tmp/file-server-$arch" /usr/local/bin/file-server; \
+    mv "/tmp/hteetp-linux-$arch" /usr/local/bin/hteetp; \
+    rm -rf /tmp/*; \
+    chown -R 1000:1000 /opt/minecraft /data
 
-# Create directories for AI CLI history and data storage
-RUN mkdir -p /data/.local/gemini/checkpoints \
-    /data/.local/codex \
-    /data/.local/claude
-
-# Configure Gemini CLI for maximum autonomy
-RUN sudo mkdir -p /etc/gemini-cli/ && sudo chmod 755 /etc/gemini-cli/
-COPY gemini-settings.json /etc/gemini-cli/system-defaults.json
-
-# Configure Codex CLI for maximum autonomy
-# Place config in /data/.local/codex since CODEX_HOME will be set to this location
-RUN mkdir -p /data/.local/codex
-COPY codex-config.toml /data/.local/codex/config.toml
-
-EXPOSE 5900 6080 6090 7681-7684 8082-8100 25565 25575
-
+ENV TYPE=PAPER VERSION=1.21.8 SERVER_PORT=25565
 ENTRYPOINT ["/usr/local/bin/start-with-services.sh"]
 CMD ["/image/scripts/start"]

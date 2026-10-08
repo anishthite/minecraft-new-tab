@@ -10,8 +10,8 @@ Run a full Minecraft Java server on the edge with real-time monitoring, authenti
 
 <img width="2052" height="2110" alt="image" src="https://github.com/user-attachments/assets/e02f9313-fe90-4c43-adb8-cec7dbb8b14c" />
 
-🎮 You get a single Cloudflare `standard-4` container with 4 vCPUs, 12 GiB of memory and 20 GB of storage, enough to comfortably accomodate 20 players.
-💵 This costs approximately 50 cents per hour to run on Cloudflare. The server automatically shuts down after 20 minutes of inactivity to save costs, your maps and plugin configurations are saved to R2 storage and restored when you start the server again.
+🎮 This fork runs one Paper world in a Cloudflare `standard-1` container with 0.5 vCPU, 4 GiB of memory, and 8 GB of storage.
+💵 The server automatically shuts down after 20 minutes of inactivity. World data is backed up to R2 before shutdown and restored when the server starts.
 
 ⚠️ I am not responsible for any costs associated with running this server! Leaving a Container running 24/7 can cost you $100s per month 💸
 
@@ -57,7 +57,6 @@ Mineflare supports multiple Paper Minecraft versions in a single deployment:
 - **🚀 Serverless Infrastructure** - Built on Cloudflare Workers, Containers, Durable Objects and R2
 - **🎮 Full Minecraft Server** - Paper server with multi-version support (1.21.7, 1.21.8, 1.21.10)
 - **🔄 Version Selector** - Switch between Legacy, Stable, and Experimental Minecraft versions without losing data
-- **🗺️ Live Mini-Map** - Integrated web Mini-Map on R2 storage
 - **🔐 Authentication** - Secure cookie-based auth with encrypted tokens
 - **💻 Web Terminal** - Real-time Minecraft control console via WebSocket
 - **🔌 Plugin Management** - Enable/disable plugins through web UI
@@ -162,7 +161,6 @@ Advanced settings in `src/container.ts`:
 Mineflare supports optional Minecraft plugins that can be enabled/disabled via the web UI:
 
 **Built-in Plugins:**
-- **Dynmap** - Always enabled, provides live web-based map
 - **playit.gg** - Optional tunnel service for external access
 
 **Adding Custom Plugins:**

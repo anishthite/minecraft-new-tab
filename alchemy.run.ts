@@ -35,8 +35,8 @@ export const containerPromise = Container<MinecraftContainer>("container3", {
         BASE_DOCKERFILE: baseDockerfile
     }
   },
-  instanceType: "standard-4",
-  maxInstances: 10, // I would prefer this to be 1 but I need to set this to a high enough number that cloudflare pre warms enough regions for us see: https://x.com/MikeNomitch_CF/status/1980676999606653238
+  instanceType: "standard-1",
+  maxInstances: 1,
 });
 
 await containerPromise;
