@@ -1398,8 +1398,20 @@ export class MinecraftContainer extends Container {
      * 2. Backup world directories to R2
      * 3. Re-enable world saving
      */
-    public async performBackup(): Promise<{ 
-      success: boolean; 
+    private backupInFlight: ReturnType<MinecraftContainer['backupWorld']> | null = null;
+
+    public async performBackup() {
+      if (this.backupInFlight) return this.backupInFlight;
+      this.backupInFlight = this.backupWorld();
+      try {
+        return await this.backupInFlight;
+      } finally {
+        this.backupInFlight = null;
+      }
+    }
+
+    private async backupWorld(): Promise<{
+      success: boolean;
       backups: Array<{ path: string; size: number }>;
       error?: string;
     }> {

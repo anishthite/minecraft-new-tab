@@ -1,233 +1,139 @@
+# Minecraft New Tab
 
+Play a Java-server-compatible Minecraft client **inside your browser**, with a private Paper world hosted in a Cloudflare Container. Based on [Mineflare](https://github.com/eastlondoner/mineflare) and [Minecraft Web Client](https://github.com/zardoy/minecraft-web-client).
 
-# Mineflare ⛏️☁️
-
-Click this button to deploy to your cloudflare account right now:
-
-[![Deploy to Cloudflare](https://github.com/user-attachments/assets/9d6358a5-2b85-4974-9adb-bd157c311b1f)](https://deploy.workers.cloudflare.com/?url=https://github.com/eastlondoner/mineflare)
-
-Run a full Minecraft Java server on the edge with real-time monitoring, authentication, and plugin management powered by Cloudflare Workers and Containers.
-
-<img width="2052" height="2110" alt="image" src="https://github.com/user-attachments/assets/e02f9313-fe90-4c43-adb8-cec7dbb8b14c" />
-
-🎮 This fork runs one Paper world in a Cloudflare `standard-1` container with 0.5 vCPU, 4 GiB of memory, and 8 GB of storage.
-💵 The server automatically shuts down after 20 minutes of inactivity. World data is backed up to R2 before shutdown and restored when the server starts.
-
-⚠️ I am not responsible for any costs associated with running this server! Leaving a Container running 24/7 can cost you $100s per month 💸
-
-## 🚀 Quick Start
-
-Click on the Deploy to Cloudflare button above to deploy to Cloudflare.
-The Cloudflare free tier is not supported for Containers so you have an account on the $5/month Cloudflare paid plan (or higher) to deploy.
-
-<img width="1706" height="1011" alt="image" src="https://github.com/user-attachments/assets/fccc7b6c-b690-46af-a05d-b201bef459f4" />
-
-### First-Time Setup
-
-1. Navigate to your deployed worker URL
-2. Click "Set Password" to secure your Server with a password
-3. Login with your credentials
-4. Click "Start Server" to launch the Minecraft container
-5. While you're waiting for the server to start up head over to https://playit.gg/ and sign up for a free account. DO NOT create an agent or a tunnel in playit.gg, this will be done automatically for you in step 6.
-6. Wait 2-3 minutes for the server to fully initialize
-7. Follow the playit.gg server address shown in the plugin panel to connect to your server via playit.gg
-8. Use your playit.gg server address `<some-name>.gl.joinmc.link` to connect to your Cloudflare Minecraft server
-<img width="795" height="490" alt="image" src="https://github.com/user-attachments/assets/303c4a07-8411-4487-acce-9ee23dfef526" />
-
-<img width="850" height="475" alt="image" src="https://github.com/user-attachments/assets/2af59c0c-c5e0-485f-b8ba-1af472dd9094" />
-
-## 🎮 Minecraft Version Support
-
-Mineflare supports multiple Paper Minecraft versions in a single deployment:
-
-- **1.21.7** (Legacy) - Older stable release for maximum compatibility
-- **1.21.8** (Stable) - Recommended for most users, default version
-- **1.21.10** (Experimental) - Latest features, may have stability issues
-
-**Switching Versions:**
-1. Stop your server using the "Stop Server" button
-2. Select your desired version in the "Minecraft Version" panel
-3. Click to switch (takes a few seconds)
-4. Start your server - it will boot with the new version
-
-⚠️ **Important:** Always backup your world before switching versions. Downgrading versions may not be fully supported and could cause world compatibility issues.
-
-## ✨ Features
-
-- **🚀 Serverless Infrastructure** - Built on Cloudflare Workers, Containers, Durable Objects and R2
-- **🎮 Full Minecraft Server** - Paper server with multi-version support (1.21.7, 1.21.8, 1.21.10)
-- **🔄 Version Selector** - Switch between Legacy, Stable, and Experimental Minecraft versions without losing data
-- **🔐 Authentication** - Secure cookie-based auth with encrypted tokens
-- **💻 Web Terminal** - Real-time Minecraft control console via WebSocket
-- **🔌 Plugin Management** - Enable/disable plugins through web UI
-- **💤 Auto-Sleep** - Containers sleep after 20 minutes of inactivity to save resources
-- **📊 Real-time Monitoring** - Server status, player list, and performance metrics
-
-<img width="1200" height="630" alt="image" src="https://github.com/user-attachments/assets/3527300e-a3a8-43af-947b-a10e3a5962a0" />
-
-## 🏗️ Architecture
-
-**Core Components:**
-- **Main Worker** (`src/worker.ts`) - Elysia API server
-- **Frontend** - Preact SPA with Eden Treaty client using polling for real-time updates
-- **MinecraftContainer** (`src/container.ts`) - Durable Object managing server lifecycle & security
-- **HTTP Proxy** - Custom TCP-to-HTTP bridge in Bun binary allows container to securely connect to R2 via bindings (no R2 tokens needed)
-- **Dynmap Worker** - Separate worker serving Mini-Map
-
-## Alternative Networking Options
-
-If you do not want to use playit.gg, you can use Tailscale or Cloudflare Tunnels for super secure private networking but it's harder to share with friends.
-
-### Using Tailscale for super secure private networking
-
-These instructions are only if you do not want to use playit.gg and want to use Tailscale for private networking instead.
-
-1. Disable the playit.gg plugin in the plugin panel
-2. Generate a Tailscale authentication key in your Tailscale account settings
-3. Create a TS_AUTHKEY *build* secret in your mineflare worker on Cloudflare and re-deploy your worker
-4. Look in your tailscale dashboard for a new node called "cloudchamber", grab the private IP address
-5. Create a new server in Minecraft using the address `<tailscale private ip>` and connect to your Cloudflare Minecraft server
-
-### Using Cloudflare Tunnels for super secure private networking
-
-Instructions coming soon....
-
-
-## Local Development
-
-### Prerequisites for local development
-
-- [Bun](https://bun.sh) javascript runtime
-- Cloudflare account with Workers and R2 enabled
-
-### Development
-
-```bash
-# Install dependencies
-bun install
-
-# Start local development environment
-bun run dev
+```text
+New-tab extension → dashboard → Play
+Browser client → authenticated Worker → WebSocket bridge → Paper
+                                                        ↕
+                                                 private R2 backups
 ```
 
-### Deployment from local checkout
+This is an **unofficial browser client**, not Mojang's Java client. Expect compatibility and visual differences. We pin client release `v2.3.0` and Paper `1.21.4`; do not downgrade a newer world into this setup. The upstream client's MIT code license does not confer rights to every game asset or replace Minecraft ownership.
 
-```bash
-# Configure alchemy
-bun run configure
+## Try it locally first
 
-# Login to Alchemy
-bun run login
+Requirements: Docker with Compose, Bun, Node.js 22+, `curl`, `unzip`, and `shasum`. Docker must be running. Running Minecraft implies acceptance of [Minecraft's EULA](https://www.minecraft.net/eula).
 
-# Deploy to Cloudflare
-bun run deploy
+```sh
+bun install --frozen-lockfile
+bun run prepare:client
+# A fresh world is created in a Docker volume, separate from any cloud world.
+docker compose up -d
+bun run play:local
 ```
 
-After deployment, you'll receive URLs for:
-- Main worker (API and frontend)
-- Dynmap worker (map tiles)
+Wait for `Done (...)!` in `docker compose logs -f minecraft`. First boot downloads server files and generates terrain, so it can take several minutes.
 
-## 🔧 Configuration
+Open this URL and click **Connect**:
 
-### Environment Variables
-
-Required environment variables (set in `.env` file):
-
-```env
-# Cloudflare credentials (from Alchemy login)
-CLOUDFLARE_ACCOUNT_ID=your_account_id
-CLOUDFLARE_API_TOKEN=your_api_token
-
-# Optional: Tailscale for private networking
-TS_AUTHKEY=your_tailscale_key
-
-# Optional: Alchemy password for state encryption
-ALCHEMY_PASSWORD=your_secure_password
+```text
+http://127.0.0.1:8081/play/?ip=ws%3A%2F%2F127.0.0.1%3A8081%2Fplay%2Fws&version=1.21.4&username=Player&setting=frameLimit%3A60&setting=rendererWorldPerformance%3A%22low-energy%22&setting=packetsRecordingAutoStart%3Afalse&setting=displayRecordButton%3Afalse
 ```
 
-### Container Settings
+Click inside the game to capture the mouse; press Escape to release it. The browser bridge and game TCP port are bound to **loopback only**. Offline-mode identities are acceptable here because strangers cannot reach the server; do not expose these ports publicly.
 
-Configure via the web UI:
-- **Minecraft Version** - Switch between 1.21.7 (Legacy), 1.21.8 (Stable), 1.21.10 (Experimental)
-- **Plugin Management** - Enable/disable optional plugins when server is stopped
+To stop:
 
-Advanced settings in `src/container.ts`:
-- `sleepAfter` - Auto-sleep timeout (default: 20 minutes)
-- `INIT_MEMORY` / `MAX_MEMORY` - Server memory allocation (default: 5G/11G)
-- Plugin environment variable configurations
-
-## 🔌 Plugin System
-
-Mineflare supports optional Minecraft plugins that can be enabled/disabled via the web UI:
-
-**Built-in Plugins:**
-- **playit.gg** - Optional tunnel service for external access
-
-**Adding Custom Plugins:**
-
-Instructions coming soon....
-
-## 🛠️ Development Commands
-
-```bash
-# Build worker code
-bun run build
-
-# Build container services including HTTP proxy binary and File server binary
-./docker_src/build-container-services.sh
-
-# Build single multi-version container image with all Paper versions
-# Includes 1.21.7, 1.21.8, and 1.21.10 in one image
-# Builds for both amd64 and arm64 architectures
-bun ./docker_src/build.ts
-
-# Destroy deployed resources
-bun run destroy
-
-# Show Alchemy version
-bun run version
+```sh
+# Ctrl+C in the bridge terminal, then:
+docker compose down
 ```
 
-### Container Build Process
+The Docker volume preserves the local world. **Do not add `-v`** unless you intend to delete it. Local mode uses this persistent volume, not R2.
 
-The container build system (`docker_src/build.ts`) creates a single multi-version image:
+## Deploy to Cloudflare
 
-- Builds one container image containing all three Paper versions (1.21.7, 1.21.8, 1.21.10)
-- Multi-platform support (linux/amd64, linux/arm64)
-- Includes version-specific Dynmap plugins for all Paper versions
-- Uses Docker buildx with registry caching for fast rebuilds
-- Caches build state to skip unnecessary rebuilds
-- The `VERSION` environment variable selects which Paper version runs at container startup
-- Image tag is written to `.BASE_DOCKERFILE` for Alchemy
+Requirements: an existing **Workers Paid** account, enabled R2 and Containers, Docker, and deployment credentials. Containers are metered separately: paid Workers is not unlimited free Minecraft hosting.
 
-## 📚 Documentation
+1. Install dependencies and prepare the browser client as above.
+2. Copy `.env.example` to `.env`.
+3. Set `CLOUDFLARE_ACCOUNT_ID` to the intended account and provide an API token authorized to manage Workers, Containers, R2, and Secrets Store. Alternatively run `bun run configure`, then `bun run login`, and select the intended account in Alchemy. A Wrangler login alone is not an Alchemy login.
+4. Generate **three different** values with `openssl rand -hex 32`; use them for `MINEFLARE_SETUP_TOKEN`, `ALCHEMY_PASSWORD`, and `ALCHEMY_STATE_TOKEN`. Keep `.env` private and backed up; it is ignored by Git and the Docker build.
+5. Verify and build:
 
-- [CLAUDE.md](CLAUDE.md) - AI generated technical documentation
+   ```sh
+   bun run test
+   bun run build
+   bun run build:image
+   ```
 
-## 📄 License
+6. Deploy:
 
-MIT License - see LICENSE file for details
+   ```sh
+   bun run deploy
+   ```
 
-## 🙏 Acknowledgments
+   If Bun `1.3.14` crashes with this older Alchemy release, run the compatible runtime directly after building:
 
-- [Cloudflare Workers](https://workers.cloudflare.com) - Serverless platform
-- [Alchemy](https://alchemy.run) - Infrastructure as Code tool
-- [itzg/minecraft-server](https://github.com/itzg/docker-minecraft-server) - Docker Minecraft server
-- [Dynmap](https://github.com/webbukkit/dynmap) - Live mapping plugin
-- [Paper](https://papermc.io) - High-performance Minecraft server
-- [Bun](https://bun.sh) - JavaScript runtime
+   ```sh
+   NODE_ENV=production npx -y bun@1.3.0 --env-file .env alchemy.run.ts
+   ```
 
-## ⚠️ Important Notes
+7. Open the **main Worker URL** printed by deployment. Choose a password, then enter your `MINEFLARE_SETUP_TOKEN` in the setup-key prompt. This key prevents anyone else from claiming the public first-use setup page.
+8. Click **Start world**. Once Paper is ready, click **Play in this tab**, then **Connect** in the browser client.
 
-- Container costs can be significant including CPU, memory, storage and network egress costs. These will apply based on usage (check Cloudflare pricing, leaving a cloudflare container running 24/7 can cost you $100s per month)
-- R2 storage has minimal costs (generous free tier)
-- Workers have generous free tier (100k requests/day)
+The default deployment name is `minecraft-new-tab`. Set `WRANGLER_CI_OVERRIDE_NAME` only when deliberately creating another deployment; a new name creates new state and storage. Do not point this version at an existing newer-version world's backup bucket.
 
-## 📞 Support
+### Resources and persistence
 
-For issues and feature requests, please use the [GitHub issue tracker](https://github.com/eastlondoner/mineflare/issues).
+- One `standard-1` instance: 0.5 vCPU, 4 GiB RAM, 8 GB disk; JVM heap 1–3 GB.
+- One player, six-chunk server view distance, four-chunk simulation distance.
+- Browser rendering capped at 60 FPS with low-energy mode; packet recording disabled by default.
+- Dashboard reads do not start the server; `POST /api/start` does.
+- Maintenance checks player counts every minute, backs up every 15 minutes, and stops after five empty minutes.
+- Backup freezes world saving, flushes disk state, snapshots `/data`, then restores saving.
+- A failed backup blocks destructive shutdown. A failed restore aborts startup rather than silently creating a replacement world. This can retain billable compute: investigate failures promptly.
+- Container disk is ephemeral; R2 is the durable cloud copy. Abrupt infrastructure failure can lose progress since the last successful backup.
+- The private data bucket is retained on infrastructure teardown. Backups accumulate; monitor R2 usage and set an appropriate retention policy after verifying restores.
 
----
+This fork retains some upstream infrastructure definitions and source files, but the game image excludes the development desktop, coding agents, Dynmap, and public playit tunnel. The upstream MCP/Dynmap services are not required to play.
 
-Made with ☁️ by [eastlondoner](https://github.com/eastlondoner)
+### Security
 
+Cloud gameplay is offline-mode **behind your authenticated Worker**, not Microsoft-account authentication. All game assets and game WebSocket upgrades require the dashboard cookie; sockets also enforce same-origin requests. The bridge has a fixed local Paper target and cannot be used as an arbitrary TCP proxy. No public TCP tunnel is installed.
+
+Do not enable public tunneling or expose Minecraft's port without adding proper Minecraft account authentication. Use a strong dashboard password. RCON is for administration; never share its authenticated dashboard access.
+
+## Install the new-tab extension
+
+1. Open `chrome://extensions` (or `edge://extensions`).
+2. Enable **Developer mode**.
+3. Click **Load unpacked** and select this repository's `extension/` directory.
+4. Open a new tab and enter your deployed main dashboard URL.
+
+Subsequent tabs open that dashboard. **The world starts only when you click Start world.** Change the URL through the extension's **Options** page. For local testing, enter the complete localhost play URL above instead.
+
+The extension only requests local storage permission; it neither stores Minecraft credentials nor loads remote code in an extension page. It navigates to the hosted app.
+
+## Checks and troubleshooting
+
+```sh
+bun run test          # Binary bridge/security checks + container lifecycle regression tests
+bun run build:worker  # TypeScript check
+bash -n container_src/start-with-services.sh
+```
+
+| Problem | Check |
+|---|---|
+| Cannot connect locally | Docker running, Paper logs contain `Done`, bridge listening on 8081; use `127.0.0.1` consistently. |
+| Game is slow | Keep packet recording off; try low-energy mode, 60 FPS cap, and a shorter render distance; graphics run on your device, not Cloudflare. |
+| Connection lost after tab is inactive | Reconnect; browsers can throttle background game tabs and interrupt protocol keepalives. |
+| Cloud game says to start the world | Return to the dashboard and click Start world; readiness takes longer than container startup. |
+| Setup returns 403 | Enter the deployment's setup key from `.env`, not the dashboard password. |
+| Backups/restores fail | Check Worker and container logs, R2 permissions, and the proxy connection; do not delete the running container or the R2 bucket. |
+| Empty world keeps running | Inspect maintenance/RCON errors; missing player counts or failed backups intentionally prevent unsafe shutdown. |
+
+Before trusting an important world, test mining, crafting, inventory, combat, death/respawn, reconnect, and save/restart. **Also test a cloud stop/start restore and verify a known placed block or inventory item survives.** Passing unit tests is not evidence that a particular account's R2 integration works.
+
+## Development
+
+- `src/worker.ts`: authenticated routing and start/stop APIs.
+- `src/container.ts`: singleton world lifecycle, RCON, maintenance and R2 integration.
+- `scripts/browser-bridge.mjs`: static client serving and fixed-target WebSocket/TCP bridge.
+- `scripts/prepare-client.sh`: checksum-pinned client release download.
+- `container_src/`: minimal image and fail-closed restore/shutdown entrypoint.
+- `extension/`: new-tab launcher.
+- `implementation-notes/`: decisions, tradeoffs, and validation history.
+
+Commits do not contain generated browser assets, world data, or deployment credentials. Keep upstream license notices when distributing the browser client.
