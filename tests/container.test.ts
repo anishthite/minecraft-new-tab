@@ -66,6 +66,30 @@ test('read-only proxying bypasses SDK auto-start and refuses stopped worlds', as
   expect(resets).toBe(0);
 });
 
+test('explicit starts share boot and reset stale handles only on a start request', async () => {
+  const { container } = world();
+  let probes = 0, resets = 0;
+  container._container = { getTcpPort: () => ({ fetch: async () => { probes++; return new Response('OK'); } }) };
+  await container.start();
+  expect(probes).toBe(1);
+  let destroyed = 0;
+  container._container.destroy = async () => { destroyed++; };
+  container.ctx.abort = (message: string) => { resets++; throw new Error(message); };
+  container._container.getTcpPort = () => ({ fetch: async () => { throw new Error('The container is not running'); } });
+  await expect(container.start()).rejects.toThrow('Stale container handle during explicit start');
+  expect(resets).toBe(1);
+  expect(destroyed).toBe(1);
+  container._container.getTcpPort = () => ({ fetch: async () => { throw new Error('Connection refused'); } });
+  await expect(container.start()).rejects.toThrow('Connection refused');
+  expect(destroyed).toBe(1);
+  let finish!: () => void, boots = 0;
+  container.startWorld = () => { boots++; return new Promise<void>(resolve => { finish = resolve; }); };
+  const first = container.start(), second = container.start();
+  expect(boots).toBe(1);
+  finish();
+  await Promise.all([first, second]);
+});
+
 test('first RCON status request reports actual player count', async () => {
   const { container } = world();
   container.initRcon = async () => {

@@ -30,6 +30,7 @@ export function useServerData(isAuthenticated: boolean) {
         // First, check the container state (doesn't wake container)
         const stateResponse = await fetchWithAuth(`/api/getState`);
         const stateData = await stateResponse.json() as { status: string; lastChange: number };
+        setError(null); // Clear transient RPC errors once the lifecycle read recovers.
         const containerRunning = stateData.status === 'running' || stateData.status === 'healthy';
         const containerStopping = stateData.status === 'stopping';
         const containerStopped = stateData.status === 'stopped' || stateData.status === 'stopped_with_code';
@@ -276,6 +277,11 @@ export function useServerData(isAuthenticated: boolean) {
       throw err;
     }
   }, [fetchVersion]);
+
+  useEffect(() => {
+    // Start on entry, never on polling/state changes that could undo idle shutdown.
+    if (isAuthenticated) void startServer();
+  }, [isAuthenticated]);
 
   useEffect(() => {
     // Only poll if authenticated

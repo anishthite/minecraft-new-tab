@@ -77,7 +77,7 @@ Requirements: an existing **Workers Paid** account, enabled R2 and Containers, D
    ```
 
 7. Open the **main Worker URL** printed by deployment. Choose a password, then enter your `MINEFLARE_SETUP_TOKEN` in the setup-key prompt. This key prevents anyone else from claiming the public first-use setup page.
-8. Click **Start world**. Once Paper is ready, click **Play in this tab**, then **Connect** in the browser client.
+8. Your world starts automatically after login when you open the dashboard. Once Paper is ready, click **Play in this tab**, then **Connect** in the browser client. Cold startup can take several minutes; **Start world** remains available to retry.
 
 The default deployment name is `minecraft-new-tab`. Set `WRANGLER_CI_OVERRIDE_NAME` only when deliberately creating another deployment; a new name creates new state and storage. Do not point this version at an existing newer-version world's backup bucket.
 
@@ -108,7 +108,7 @@ Do not enable public tunneling or expose Minecraft's port without adding proper 
 3. Click **Load unpacked** and select this repository's `extension/` directory.
 4. Open a new tab and enter your deployed main dashboard URL.
 
-Subsequent tabs open that dashboard. **The world starts only when you click Start world.** Change the URL through the extension's **Options** page. For local testing, enter the complete localhost play URL above instead.
+Subsequent tabs open that dashboard. **Opening the authenticated dashboard automatically starts paid compute.** It saves and stops after five minutes without players, even if the dashboard stays open; reopening/reloading the dashboard starts it again. **Save and stop** remains available. Change the URL through the extension's **Options** page. For local testing, enter the complete localhost play URL above instead.
 
 The extension only requests local storage permission; it neither stores Minecraft credentials nor loads remote code in an extension page. It navigates to the hosted app.
 
@@ -128,7 +128,7 @@ bash tests/bridge-runtime.sh
 | Cannot connect locally | Docker running, Paper logs contain `Done`, bridge listening on 8081; use `127.0.0.1` consistently. |
 | Game is slow | Keep packet recording off; try low-energy mode, 60 FPS cap, and a shorter render distance; graphics run on your device, not Cloudflare. |
 | Connection lost after tab is inactive | Reconnect; browsers can throttle background game tabs and interrupt protocol keepalives. |
-| Cloud game says to start the world | Return to the dashboard and click Start world; readiness takes longer than container startup. |
+| Cloud game says to start the world | Open the dashboard to start automatically, then wait for Online; use Start world to retry if needed. |
 | Container says running but Paper is offline | Container services start before Paper; wait for `Done` in the game logs. Inspect restore/startup errors if it never becomes online. |
 | Setup returns 403 | Enter the deployment's setup key from `.env`, not the dashboard password. |
 | Backups/restores fail | Check Worker and container logs, R2 permissions, and the proxy connection; do not delete the running container or the R2 bucket. |

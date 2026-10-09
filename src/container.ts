@@ -364,6 +364,7 @@ export class MinecraftContainer extends Container {
     private httpProxyLoopShouldStop: boolean = false;
 
     private stopping = false;
+    private startPromise: Promise<void> | null = null;
     
     override async stop() {
       console.error("Stopping world");
@@ -420,6 +421,25 @@ export class MinecraftContainer extends Container {
 
     // Optional lifecycle hooks
     override async start() {
+      if (!this.startPromise) {
+        this.startPromise = this.startWorld().finally(() => { this.startPromise = null; });
+      }
+      return this.startPromise;
+    }
+
+    private async startWorld() {
+      if (await this.getStatus() === 'running') {
+        try {
+          await this._container.getTcpPort(8083).fetch('http://localhost/', { method: 'HEAD', signal: AbortSignal.timeout(5000) });
+          return;
+        } catch (error) {
+          if (String(error).includes('The container is not running')) {
+            await this._container.destroy(); // No running process; clear the stale native instance before retry.
+            this.ctx.abort('Stale container handle during explicit start');
+          }
+          throw error;
+        }
+      }
       this.stopping = false
       console.error("Container start triggered");
       this._initializeSql();
@@ -480,6 +500,10 @@ export class MinecraftContainer extends Container {
         this.ctx.waitUntil((new Promise(resolve => setTimeout(resolve, 3000))).then(() => this.initHTTPProxy()));
         await portsPromise;
       } catch (error) {
+        if (String(error).includes('The container is not running')) {
+          await this._container.destroy();
+          this.ctx.abort('Stale container handle during explicit start');
+        }
         console.error("Error while starting ports but it's probably OK", error);
         const deadline = Date.now() + 5000;
         while(await this.getStatus() !== 'running') {

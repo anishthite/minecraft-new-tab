@@ -69,8 +69,14 @@ const elysiaApp = (
     const container = getMinecraftContainer();
     const state = await container.getStatus();
     if (state === 'stopping') return Response.json({ error: 'World is stopping' }, { status: 409 });
-    if (state === 'stopped') await container.start();
-    return { success: true };
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        await container.start();
+        return { success: true };
+      } catch (error) {
+        if (attempt || !String(error).includes('Stale container handle during explicit start')) throw error;
+      }
+    }
   })
 
   /**

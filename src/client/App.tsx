@@ -25,7 +25,7 @@ export function App() {
       <div style={{ maxWidth: '900px', margin: '0 auto' }}>
         <h1>Your Minecraft world</h1>
         <p>Paper 1.21.4 · private browser play · saved to R2 every 15 minutes.</p>
-        <p>Opening this page does not start your world. It saves and stops after five minutes without players.</p>
+        <p>Your world starts automatically when you open this dashboard after login. It saves and stops after five minutes without players.</p>
         <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', margin: '24px 0' }}>
           {serverState === 'stopped' && <button onClick={startServer} disabled={loading}>Start world</button>}
           {serverState === 'running' && status?.online && <a href={playUrl} style={{ color: '#b9e5a2', fontSize: '24px' }}>Play in this tab</a>}
