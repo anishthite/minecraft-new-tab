@@ -6,7 +6,7 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import WebSocket from 'ws';
-import { createBridge } from '../scripts/browser-bridge.mjs';
+const { createBridge } = await import(process.env.BRIDGE_MODULE || '../scripts/browser-bridge.mjs');
 
 test('private fixed-target bridge serves client and forwards binary Minecraft traffic', { timeout: 10000 }, async () => {
   const root = await mkdtemp(join(tmpdir(), 'mc-bridge-'));

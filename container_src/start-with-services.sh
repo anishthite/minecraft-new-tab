@@ -42,7 +42,7 @@ chown -R 1000:1000 /data /logs /status
 write_status 'Starting backup and browser services'
 /usr/local/bin/file-server > /logs/file-server.log 2>&1 &
 /usr/local/bin/http-proxy > /logs/http-proxy.log 2>&1 &
-/usr/local/bin/browser-bridge > /logs/browser-bridge.log 2>&1 &
+node /opt/browser-bridge/browser-bridge.mjs > /logs/browser-bridge.log 2>&1 &
 write_status 'Restoring world data'
 restore
 # Root extracts backups; the image's restored UID marker can skip its own chown.
