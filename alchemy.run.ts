@@ -42,7 +42,7 @@ export const worker: BunSPA<typeof bindings> = await BunSPA('mineflare-main-work
   name: app.name, entrypoint: 'src/worker.ts', frontend: ['index.html'], adopt: true,
   compatibility: 'node', compatibilityFlags: ['enable_ctx_exports'],
   compatibilityDate: '2025-09-27', bindings,
-  assets: { directory: 'dist/client', run_worker_first: ['/play/*'] },
+  assets: { directory: 'dist/client', run_worker_first: ['/api/*', '/auth/*', '/play/*', '/ws', '/ws/*'] },
 });
 
 // Type-only compatibility for unused upstream sources; no ancillary workers deploy.

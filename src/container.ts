@@ -500,7 +500,7 @@ export class MinecraftContainer extends Container {
       console.error("Container successfully started");
       this.recordSessionStart();
       this.deleteSchedules('maintainWorld');
-      await this.ctx.storage.put('emptySince', Date.now());
+      await this.ctx.storage.delete('emptySince');
       await this.schedule(60, 'maintainWorld');
     }
 
@@ -642,13 +642,7 @@ export class MinecraftContainer extends Container {
       return new Response("Container is not running", { status: 502 });
     }
     const target = request instanceof Request ? request : new Request(request);
-    try {
-      return await this._container.getTcpPort(port).fetch(target.url.replace('https:', 'http:'), target);
-    } catch (error) {
-      // A rollout can leave the actor's handle claiming a process that is gone.
-      if (String(error).includes('The container is not running')) this.ctx.abort('Stale container handle');
-      throw error;
-    }
+    return await this._container.getTcpPort(port).fetch(target.url.replace('https:', 'http:'), target);
   }
 
   public async getFileContents(filePath: string): Promise<string | null> {

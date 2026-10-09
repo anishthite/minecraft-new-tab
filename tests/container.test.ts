@@ -60,10 +60,10 @@ test('read-only proxying bypasses SDK auto-start and refuses stopped worlds', as
   container.ctx.abort = () => { resets++; };
   container._container.getTcpPort = () => ({ fetch: async () => { throw new Error('The container is not running'); } });
   await expect(container.containerFetch('https://localhost/__logs', 8081)).rejects.toThrow('not running');
-  expect(resets).toBe(1);
+  expect(resets).toBe(0);
   container._container.getTcpPort = () => ({ fetch: async () => { throw new Error('Connection refused'); } });
   await expect(container.containerFetch('https://localhost/__logs', 8081)).rejects.toThrow('Connection refused');
-  expect(resets).toBe(1);
+  expect(resets).toBe(0);
 });
 
 test('first RCON status request reports actual player count', async () => {
@@ -81,7 +81,15 @@ test('maintenance preserves active world and stops only after empty grace period
   container.stop = async () => { stopped = true; };
   container.performBackup = async () => ({ success: true });
   container.getRconStatus = async () => ({ online: true, playerCount: 1 });
+  container.recordSessionStart = () => {};
+  container.deleteSchedules = () => {};
   data.set('emptySince', Date.now() - 600000);
+  await container.onStart();
+  expect(data.has('emptySince')).toBe(false);
+  container.getRconStatus = async () => ({ online: false });
+  await container.maintainWorld();
+  expect(data.has('emptySince')).toBe(false);
+  container.getRconStatus = async () => ({ online: true, playerCount: 1 });
   await container.maintainWorld();
   expect(stopped).toBe(false);
   expect(data.has('emptySince')).toBe(false);
