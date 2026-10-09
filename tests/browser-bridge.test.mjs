@@ -11,6 +11,7 @@ const { createBridge } = await import(process.env.BRIDGE_MODULE || '../scripts/b
 test('private fixed-target bridge serves client and forwards binary Minecraft traffic', { timeout: 10000 }, async () => {
   const root = await mkdtemp(join(tmpdir(), 'mc-bridge-'));
   await writeFile(join(root, 'index.html'), '<h1>Play</h1>');
+  await writeFile(join(root, 'wasm_mesher_bg.wasm'), Buffer.from([0, 97, 115, 109, 1, 0, 0, 0]));
   const tcp = net.createServer(socket => socket.pipe(socket));
   tcp.listen(0, '127.0.0.1');
   await once(tcp, 'listening');
@@ -20,6 +21,9 @@ test('private fixed-target bridge serves client and forwards binary Minecraft tr
   const origin = `http://127.0.0.1:${server.address().port}`;
   try {
     assert.equal(await (await fetch(origin + '/play/')).text(), '<h1>Play</h1>');
+    const wasm = await fetch(origin + '/play/wasm_mesher_bg.wasm');
+    assert.equal(wasm.headers.get('Content-Type'), 'application/wasm');
+    assert.ok((await WebAssembly.instantiateStreaming(wasm)).instance);
     assert.equal((await fetch(origin + '/play/%2f..%2fsecret')).status, 403);
     const rejected = new WebSocket(origin.replace('http:', 'ws:') + '/play/ws', { origin: 'https://evil.example' });
     rejected.on('error', () => {});

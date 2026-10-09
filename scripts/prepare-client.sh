@@ -11,5 +11,14 @@ find "$tmp/dist" -name '*.map' -delete
 rm -f "$tmp/dist/service-worker.js" "$tmp/dist/sw.js"
 rm -rf .browser-client
 mv "$tmp/dist" .browser-client
+# The pinned mesher hard-codes the origin root; keep its WASM inside authenticated /play/.
+node --input-type=module <<'NODE'
+import { readFileSync, writeFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+const path = '.browser-client/mesherWasm.js';
+const source = readFileSync(path, 'utf8');
+assert.equal(source.split('"/wasm_mesher_bg.wasm"').length, 2);
+writeFileSync(path, source.replace('"/wasm_mesher_bg.wasm"', '"./wasm_mesher_bg.wasm"'));
+NODE
 printf '%s\n' '{"version":1,"defaultUsername":"Player","promoteServers":[],"defaultProxy":"","rightSideText":"Your private world"}' > .browser-client/config.json
 curl -fL 'https://raw.githubusercontent.com/zardoy/minecraft-web-client/v2.3.0/LICENSE' -o .browser-client/LICENSE

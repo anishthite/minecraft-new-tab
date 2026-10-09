@@ -11,7 +11,7 @@ Browser client → authenticated Worker → WebSocket bridge → Paper
 
 This is an **unofficial browser client**, not Mojang's Java client. Expect compatibility and visual differences. We pin client release `v2.3.0` and Paper `1.21.4`; do not downgrade a newer world into this setup. The upstream client's MIT code license does not confer rights to every game asset or replace Minecraft ownership.
 
-**Status:** local browser play and real Cloudflare save/stop/start restoration are verified on a fresh Paper 1.21.4 world. Existing and newly placed test blocks survived R2 recovery. This remains an unofficial client: validate your own deployment before trusting an important world.
+**Status:** authenticated cloud browser play and real Cloudflare save/stop/start restoration are verified on a fresh Paper 1.21.4 world. Existing and newly placed test blocks survived R2 recovery; terrain rendered at 60 FPS in a short browser check. Sustained performance and the 15-minute cloud backup cadence still need a longer soak. This remains an unofficial client: validate your own deployment before trusting an important world.
 
 ## Try it locally first
 
