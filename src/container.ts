@@ -134,7 +134,7 @@ export class MinecraftContainer extends Container {
     
   
     enableInternet = true;
-    private _container: DurableObject['ctx']['container'];
+    private _container: NonNullable<DurableObject['ctx']['container']>;
     private _sqlInitialized = false;
     private _initializeSql() {
       if(!this._sqlInitialized) {
@@ -637,12 +637,17 @@ export class MinecraftContainer extends Container {
   }
 
   public override async containerFetch(request: Request | string | URL, port: number): Promise<Response> {
-    // container lib will start the container if it's stopped (at least in local dev)it's annoying AF
-    const status = await this.getStatus();
-    if(status !== 'stopped') {
-      return await super.containerFetch(request, port);
-    } else {
+    // SDK containerFetch can auto-start an unhealthy container; reads must not.
+    if (await this.getStatus() !== 'running') {
       return new Response("Container is not running", { status: 502 });
+    }
+    const target = request instanceof Request ? request : new Request(request);
+    try {
+      return await this._container.getTcpPort(port).fetch(target.url.replace('https:', 'http:'), target);
+    } catch (error) {
+      // A rollout can leave the actor's handle claiming a process that is gone.
+      if (String(error).includes('The container is not running')) this.ctx.abort('Stale container handle');
+      throw error;
     }
   }
 

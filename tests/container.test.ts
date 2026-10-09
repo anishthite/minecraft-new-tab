@@ -3,7 +3,10 @@ import { test, expect, mock } from 'bun:test';
 mock.module('cloudflare:workers', () => ({ DurableObject: class {} }));
 mock.module('../alchemy.run.ts', () => ({ worker: {} }));
 mock.module('@cloudflare/containers', () => ({
-  Container: class { async stop(signal: string) { (this as any).signal = signal; } },
+  Container: class {
+    async stop(signal: string) { (this as any).signal = signal; }
+    async containerFetch() { throw new Error('SDK auto-start proxy must not be called'); }
+  },
   switchPort: (request: Request) => request,
 }));
 const { MinecraftContainer } = await import('../src/container.ts');
@@ -32,6 +35,35 @@ test('native runtime state wins over a stale running status', async () => {
   expect(await container.getStatus()).toBe('running');
   container.stopping = true;
   expect(await container.getStatus()).toBe('stopping');
+});
+
+test('read-only proxying bypasses SDK auto-start and refuses stopped worlds', async () => {
+  const { container } = world();
+  let calls = 0;
+  container._container = { getTcpPort: (port: number) => ({
+    fetch: async (url: string, request: Request) => {
+      expect(port).toBe(8081);
+      expect(url).toBe('http://localhost/__logs');
+      expect(request.method).toBe('GET');
+      calls++;
+      return new Response('logs');
+    },
+  }) };
+  expect(await (await container.containerFetch('https://localhost/__logs', 8081)).text()).toBe('logs');
+  for (const state of ['stopped', 'stopping']) {
+    container.getStatus = async () => state;
+    expect((await container.containerFetch('https://localhost/__logs', 8081)).status).toBe(502);
+  }
+  expect(calls).toBe(1);
+  container.getStatus = async () => 'running';
+  let resets = 0;
+  container.ctx.abort = () => { resets++; };
+  container._container.getTcpPort = () => ({ fetch: async () => { throw new Error('The container is not running'); } });
+  await expect(container.containerFetch('https://localhost/__logs', 8081)).rejects.toThrow('not running');
+  expect(resets).toBe(1);
+  container._container.getTcpPort = () => ({ fetch: async () => { throw new Error('Connection refused'); } });
+  await expect(container.containerFetch('https://localhost/__logs', 8081)).rejects.toThrow('Connection refused');
+  expect(resets).toBe(1);
 });
 
 test('first RCON status request reports actual player count', async () => {
