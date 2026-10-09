@@ -45,6 +45,8 @@ write_status 'Starting backup and browser services'
 /usr/local/bin/browser-bridge > /logs/browser-bridge.log 2>&1 &
 write_status 'Restoring world data'
 restore
+# Root extracts backups; the image's restored UID marker can skip its own chown.
+chown -Rh 1000:1000 /data
 # Relink after restore and remove plugins from old development-profile backups.
 rm -f /data/plugins/dynmap.jar /data/plugins/Dynmap-*.jar /data/plugins/playit-minecraft-plugin.jar
 for file in /opt/minecraft/server/* /opt/minecraft/server/.paper-*.env; do
