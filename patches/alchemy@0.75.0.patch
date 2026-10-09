@@ -1,11 +1,14 @@
 diff --git a/node_modules/alchemy/.bun-tag-cd6ed6db1abde8f1 b/.bun-tag-cd6ed6db1abde8f1
 new file mode 100644
 index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/alchemy/.bun-tag-f5214169eb980825 b/.bun-tag-f5214169eb980825
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
 diff --git a/lib/cloudflare/bun-spa/bun-spa.js b/lib/cloudflare/bun-spa/bun-spa.js
-index a45c22740433e75b1e16d54f49b576a2bd53f604..ab57fdacb3c4e55aa10d9a358f1db1750839b9e9 100644
+index a45c22740433e75b1e16d54f49b576a2bd53f604..ed027a49100daf0fef535456fdc7e5352890c4b2 100644
 --- a/lib/cloudflare/bun-spa/bun-spa.js
 +++ b/lib/cloudflare/bun-spa/bun-spa.js
-@@ -33,9 +33,6 @@ export async function BunSPA(id, props) {
+@@ -33,11 +33,8 @@ export async function BunSPA(id, props) {
          }
      }
      const outDir = path.resolve(props.outDir ?? "dist/client");
@@ -13,8 +16,11 @@ index a45c22740433e75b1e16d54f49b576a2bd53f604..ab57fdacb3c4e55aa10d9a358f1db175
 -        throw new Error("assets are not supported in BunSPA");
 -    }
      const scope = Scope.current;
-     const nodeEnv = (props.bindings?.NODE_ENV ?? scope.local) ? "development" : "production";
+-    const nodeEnv = (props.bindings?.NODE_ENV ?? scope.local) ? "development" : "production";
++    const nodeEnv = props.bindings?.NODE_ENV ?? (scope.local ? "development" : "production");
      console.log("creating website", outDir);
+     const website = await Website(id, {
+         spa: true,
 @@ -48,6 +45,7 @@ export async function BunSPA(id, props) {
              NODE_ENV: nodeEnv,
          },
@@ -38,10 +44,10 @@ index b288e9e5c94c44cbcd95d03de6d084dcccd80d4f..1b8682fecee134890a152fb4e0e4605e
      };
      if (this.phase === "update" && this.output?.id) {
 diff --git a/src/cloudflare/bun-spa/bun-spa.ts b/src/cloudflare/bun-spa/bun-spa.ts
-index d86acbe91a48ff76e098658b826f103ec04843a6..6c612e3fddf6119df732f8dd7cc94638257c6d57 100644
+index d86acbe91a48ff76e098658b826f103ec04843a6..9a789a892e3f1225d6b8eaf44e19732457a0fd45 100644
 --- a/src/cloudflare/bun-spa/bun-spa.ts
 +++ b/src/cloudflare/bun-spa/bun-spa.ts
-@@ -65,10 +65,6 @@ export async function BunSPA<B extends Bindings>(
+@@ -65,13 +65,9 @@ export async function BunSPA<B extends Bindings>(
 
    const outDir = path.resolve(props.outDir ?? "dist/client");
 
@@ -51,7 +57,11 @@ index d86acbe91a48ff76e098658b826f103ec04843a6..6c612e3fddf6119df732f8dd7cc94638
 -
    const scope = Scope.current;
    const nodeEnv =
-     (props.bindings?.NODE_ENV ?? scope.local) ? "development" : "production";
+-    (props.bindings?.NODE_ENV ?? scope.local) ? "development" : "production";
++    props.bindings?.NODE_ENV ?? (scope.local ? "development" : "production");
+   console.log("creating website", outDir);
+   const website = await Website(id, {
+     spa: true,
 @@ -82,6 +78,7 @@ export async function BunSPA<B extends Bindings>(
        NODE_ENV: nodeEnv,
      } as unknown as B,
