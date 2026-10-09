@@ -4,7 +4,7 @@
 
 import Elysia from "elysia";
 import { getNodeEnv } from "../client/utils/node-env";
-import { CloudflareAdapter } from "elysia/adapter/cloudflare-worker";
+import { WebStandardAdapter } from "elysia/adapter/web-standard";
 import cors from "@elysiajs/cors";
 import { getMinecraftContainer } from "./get-minecraft-container";
 import { env as workerEnv } from 'cloudflare:workers'
@@ -212,8 +212,8 @@ export async function requireAuth(request: Request): Promise<Response | null> {
 export const authApp = (
   getNodeEnv() === 'development'
   ? new Elysia({
-      adapter: CloudflareAdapter,
-      // aot: false,
+      adapter: WebStandardAdapter,
+      aot: false,
     }).use(cors({
         origin: /^http:\/\/localhost(:\d+)?$/,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -222,8 +222,8 @@ export const authApp = (
         maxAge: 86400,
     }))
   : new Elysia({
-      adapter: CloudflareAdapter,
-      // aot: false,
+      adapter: WebStandardAdapter,
+      aot: false,
     })
   )
   

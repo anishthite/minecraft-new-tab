@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
 import type { worker } from "../alchemy.run";
-import { CloudflareAdapter } from 'elysia/adapter/cloudflare-worker'
+import { WebStandardAdapter } from 'elysia/adapter/web-standard'
 import { env as workerEnv } from 'cloudflare:workers'
 import cors from "@elysiajs/cors";
 import { getNodeEnv } from "./client/utils/node-env";
@@ -14,8 +14,8 @@ const env = workerEnv as typeof worker.Env;
 const elysiaApp = (
   getNodeEnv() === 'development'
   ? new Elysia({
-      adapter: CloudflareAdapter,
-      // aot: false,
+      adapter: WebStandardAdapter,
+      aot: false,
     }).use(cors({
         origin: /^http:\/\/localhost(:\d+)?$/,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -24,8 +24,8 @@ const elysiaApp = (
         maxAge: 86400,
     }))
   : new Elysia({
-      adapter: CloudflareAdapter,
-      // aot: false,
+      adapter: WebStandardAdapter,
+      aot: false,
     })
   )
   .get("/", () => 'foo')
@@ -393,10 +393,10 @@ const elysiaApp = (
   .compile()
 
 const app = new Elysia({
-  adapter: CloudflareAdapter,
-  // aot: false,
-}).mount('/api', elysiaApp)
-  .mount('/auth', authApp)
+  adapter: WebStandardAdapter,
+  aot: false,
+}).group('/api', (routes) => routes.use(elysiaApp))
+  .group('/auth', (routes) => routes.use(authApp))
   .compile()
 
 export { MinecraftContainer } from "./container";
